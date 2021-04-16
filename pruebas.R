@@ -1,0 +1,54 @@
+library(dummies)
+library(caret)
+library(rpart)
+library(e1071)
+
+casas <- read.csv("./data/train.csv")
+porcentaje <- 70/100
+
+set.seed(314)
+
+casas[is.na(casas)] <- 0
+casas$Id <- NULL
+
+casas$clasificacion <- ifelse(casas$SalePrice <= 251000, "Economica", ifelse(casas$SalePrice <= 538000, "Intermedia", ifelse(casas$SalePrice <= 755000, "Cara")))
+
+casas <- casas[,c(4,12,17,34,38,46,62,67,81)]
+casas <- cbind(casas, dummy(casas$clasificacion, verbose=T))
+
+casas_economicas <- casas[casas$clasificacion=="Economica",]
+casas_intermedias <- casas[casas$clasificacion=="Intermedia",]
+casas_caras <- casas[casas$clasificacion=="Cara",]
+
+train_nrow_economicas <- sample(nrow(casas_economicas), porcentaje*nrow(casas_economicas))
+train_economicas <- casas_economicas[train_nrow_economicas,]
+
+train_nrow_intermedias <- sample(nrow(casas_intermedias), porcentaje*nrow(casas_intermedias))
+train_intermedias <- casas_intermedias[train_nrow_intermedias,]
+
+train_nrow_caras <- sample(nrow(casas_caras), porcentaje*nrow(casas_caras))
+train_caras <- casas_caras[train_nrow_caras,]
+
+training <- rbind(train_economicas, train_intermedias, train_caras)
+test <- casas[setdiff(rownames(casas), rownames(training)),]
+
+table(training$clasificacion)
+table(test$clasificacion)
+
+# Modelo economico
+modelo_economico <- glm(casasEconomica~., data = training[,c(1:8,11)], family = binomial(), maxit=100)
+predEconomica <- predict(modelo_economico, newdata=test[,1:8], type = "response")
+prediccion_economica <- ifelse(predEconomica>=0.5,1,0)
+confusionMatrix(as.factor(test$casasEconomica),as.factor(prediccion_economica))
+
+# Modelo intermedio
+modelo_intermedio <- glm(casasIntermedia~., data=training[,c(1:8,12)], family = binomial(), maxit=100)
+predIntermedia <- predict(modelo_intermedio, newdata=test[,1:8], type = "response")
+prediccion_intermedia <- ifelse(predIntermedia>=0.5,1,0)
+confusionMatrix(as.factor(test$casasI), as.factor(prediccion_intermedia))
+
+# Modelo caro
+modelo_caro <- glm(casasCara~., data=training[,c(1:8,10)], family = binomial(), maxit=100)
+predCara <- predict(modelo_caro, newdata=test[,1:8], type = "response")
+prediccion_cara <- ifelse(predCara>=0.5,1,0)
+confusionMatrix(as.factor(test$casasCara), as.factor(prediccion_cara))
